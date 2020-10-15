@@ -1,0 +1,42 @@
+version: '3.8'
+services:
+  redis:
+    image: redis:5.0.3-alpine
+    restart: unless-stopped
+    expose:
+      - 6379
+  postgres:
+    image: postgres:latest
+    environment:
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+  scheduler:
+    image: apache/airflow:latest
+    command: scheduler
+    restart: on-failure
+    depends_on:
+      - redis
+      - postgres
+    env_file:
+      - .env
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./data:/opt/airflow/data
+  webserver:
+    image: apache/airflow:latest
+    entrypoint: ./scripts/entrypoint.sh
+    restart: on-failure
+    depends_on:
+      - redis
+      - postgres
+      - scheduler
+    env_file:
+      - .env
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./scripts:/opt/airflow/scripts
+    ports:
+      - "8080:8080"
