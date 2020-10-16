@@ -11,9 +11,9 @@ from airflow.utils.decorators import (
 )
 
 
-class ProcessRecycleOperator(BaseOperator):
+class ProcessCSVFileOperator(BaseOperator):
     """
-    Transform source data to load
+    Process source data to load
     """
 
     @apply_defaults
@@ -24,17 +24,25 @@ class ProcessRecycleOperator(BaseOperator):
             csv_file_header,
             csv_file_params,
             *args, **kwargs):
-
-        super(ProcessRecycleOperator, self).__init__(*args, **kwargs)
+        super(ProcessCSVFileOperator, self).__init__(*args, **kwargs)
         self.csv_file_from_path = csv_file_from_path
         self.csv_file_to_path = csv_file_to_path
         self.csv_file_header = csv_file_header
         self.csv_file_params = csv_file_params
 
     def execute(self, context):
+        raise NotImplementedError()
+
+
+class ProcessRecycleOperator(ProcessCSVFileOperator):
+    """
+    Process source Recycle data to load
+    """
+
+    def execute(self, context):
         df = pd.read_csv(self.csv_file_from_path, sep=';', names=self.csv_file_header)
         df = df[df['store_id'].notna()]
-        df['updated_at'] = [datetime.now().isoformat()] * len(df)
+        df['updated_at'] = datetime.now().isoformat()
         df.fillna(value={
             'id_item': 0,
             'name': 'unknown',
@@ -43,5 +51,23 @@ class ProcessRecycleOperator(BaseOperator):
             'quantity_rto_plan': 0,
             'recycle_plan': 0,
             'rto_plan': 0
+        }, inplace=True)
+        df.to_csv(self.csv_file_to_path, **self.csv_file_params)
+
+
+class ProcessStoppedFoodOperator(ProcessCSVFileOperator):
+    def execute(self, context):
+        df = pd.read_csv(self.csv_file_from_path, sep=';', names=self.csv_file_header)
+        df = df[df['store_id'].notna()]
+        df['updated_at'] = datetime.now().isoformat()
+        df['is_actual'] = True
+        df.fillna(value={
+            'plu': 'unknown',
+            'ui2': 'unknown',
+            'ui3': 'unknown',
+            'name': 'unknown',
+            'last_saled': 0,
+            'days_of_nonsale': 0,
+            'leftover': 0
         }, inplace=True)
         df.to_csv(self.csv_file_to_path, **self.csv_file_params)
