@@ -2,7 +2,7 @@ from datetime import (
     datetime
 )
 
-import pandas as pd
+import pandas
 from airflow.operators import (
     BaseOperator
 )
@@ -40,7 +40,7 @@ class ProcessRecycleOperator(ProcessCSVFileOperator):
     """
 
     def execute(self, context):
-        df = pd.read_csv(self.csv_file_from_path, sep=';', names=self.csv_file_header)
+        df = pandas.read_csv(self.csv_file_from_path, sep=';', names=self.csv_file_header)
         df = df[df['store_id'].notna()]
         df['updated_at'] = datetime.now().isoformat()
         df.fillna(value={
@@ -57,7 +57,7 @@ class ProcessRecycleOperator(ProcessCSVFileOperator):
 
 class ProcessStoppedFoodOperator(ProcessCSVFileOperator):
     def execute(self, context):
-        df = pd.read_csv(self.csv_file_from_path, sep=';', names=self.csv_file_header)
+        df = pandas.read_csv(self.csv_file_from_path, sep=';', names=self.csv_file_header)
         df = df[df['store_id'].notna()]
         df['updated_at'] = datetime.now().isoformat()
         df['is_actual'] = True

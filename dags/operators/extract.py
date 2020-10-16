@@ -41,6 +41,6 @@ class ExtractFromPostgresqlOperator(BaseOperator):
     def execute(self, context):
         logging.info('Executing: ' + str(self.sql))
         source = PostgresHook(postgres_conn_id=self.postgres_conn_id)
-        pandas_df = source.get_pandas_df(self.sql, parameters=self.pandas_sql_params)
+        df = source.get_pandas_df(self.sql, parameters=self.pandas_sql_params)
         logging.info('Saving to: ' + str(self.csv_path))
-        pandas_df.to_csv(self.csv_path, **self.csv_params)
+        df.to_csv(self.csv_path, **self.csv_params)
