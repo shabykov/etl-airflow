@@ -22,7 +22,7 @@ class PostgresqlPatchedHook(PostgresHook):
                          table,
                          rows,
                          target_fields=None):
-        i = 0
+
         with closing(self.get_conn()) as conn:
             if self.supports_autocommit:
                 self.set_autocommit(conn, False)
@@ -36,11 +36,11 @@ class PostgresqlPatchedHook(PostgresHook):
                     extras.execute_values(cur, sql, rows)
                 except (Exception, psycopg2.DatabaseError) as error:
                     conn.rollback()
-                    self.log.error('Load error: {}, failed on {} row'.format(error.__str__(), i))
+                    self.log.error('Load error: {}'.format(error.__str__()))
                     raise
 
             conn.commit()
-        self.log.info("Done loading. Loaded a total of %s rows", i)
+        self.log.info("Done loading. Loaded a total of %s rows", len(rows))
 
     @staticmethod
     def _generate_many_insert_sql(table, target_fields):
