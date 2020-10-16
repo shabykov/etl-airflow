@@ -7,19 +7,19 @@ from airflow import (
 )
 
 from operators.extract import (
-    ExtractFromPostgresOperator
+    ExtractFromPostgresqlOperator
 )
 from operators.transform import (
-    TransformCSVFileOperator
+    ProcessRecycleOperator
 )
 from operators.load import (
-    LoadFromCSVOperator
+    LoadToPostgresqlOperator
 )
 
 
 args = {
     'owner': 'Me',
-    'start_date': datetime(2020, 10, 15, hour=13, minute=0)
+    'start_date': datetime(2020, 10, 16, hour=10, minute=0)
 }
 
 TABLE_NAME = 'dashboards_recycle'
@@ -44,7 +44,7 @@ with DAG(
         default_args=args,
         schedule_interval='*/50 * * * *'
 ) as dag:
-    extract_recycle = ExtractFromPostgresOperator(
+    extract_recycle = ExtractFromPostgresqlOperator(
         task_id='extract_recycle',
         postgres_conn_id='postgres_default',
         sql='select {{ params.target_fields }} from {{ params.table_name }}',
@@ -55,7 +55,7 @@ with DAG(
         depends_on_past=True,
         dag=dag)
 
-    transform_recycle = TransformCSVFileOperator(
+    transform_recycle = ProcessRecycleOperator(
         task_id='transform_recycle',
         csv_file_from_path=CSV_FILE_RAW_PATH,
         csv_file_to_path=CSV_FILE_CLEANED_PATH,
@@ -63,7 +63,7 @@ with DAG(
         csv_file_params=CSV_FILE_PARAMS,
         dag=dag)
 
-    load_recycle = LoadFromCSVOperator(
+    load_recycle = LoadToPostgresqlOperator(
         task_id='load_recycle',
         postgres_conn_id='postgres_default',
         csv_path=CSV_FILE_CLEANED_PATH,

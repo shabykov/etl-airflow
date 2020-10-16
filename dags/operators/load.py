@@ -1,6 +1,11 @@
-from contextlib import closing
+import logging
+from contextlib import (
+    closing
+)
 
-import pandas as pd
+import pandas
+import psycopg2
+import psycopg2.extras as extras
 from airflow.hooks.postgres_hook import (
     PostgresHook
 )
@@ -12,20 +17,43 @@ from airflow.utils.decorators import (
 )
 
 
-def truncate_table(target, table):
-    """
-    Clear target table before load data
-    :param target:
-    :param table:
-    :return:
-    """
-    with closing(target.get_conn()) as conn:
-        with closing(conn.cursor()) as cursor:
-            cursor.execute("TRUNCATE {} RESTART IDENTITY;".format(table))
+class PostgresqlPatchedHook(PostgresHook):
+    def insert_many_rows(self,
+                         table,
+                         rows,
+                         target_fields=None):
+        i = 0
+        with closing(self.get_conn()) as conn:
+            if self.supports_autocommit:
+                self.set_autocommit(conn, False)
             conn.commit()
 
+            with closing(conn.cursor()) as cur:
+                cur.execute("TRUNCATE %s RESTART IDENTITY;" % table)
+                self.log.info("Table %s is cleaned", table)
+                try:
+                    sql = self._generate_many_insert_sql(table, target_fields)
+                    extras.execute_values(cur, sql, rows)
+                except (Exception, psycopg2.DatabaseError) as error:
+                    conn.rollback()
+                    self.log.error('Load error: {}, failed on {} row'.format(error.__str__(), i))
+                    raise
 
-class LoadFromCSVOperator(BaseOperator):
+            conn.commit()
+        self.log.info("Done loading. Loaded a total of %s rows", i)
+
+    @staticmethod
+    def _generate_many_insert_sql(table, target_fields):
+        if target_fields:
+            target_fields_fragment = ", ".join(target_fields)
+        else:
+            target_fields_fragment = ''
+
+        sql = "INSERT INTO %s (%s) VALUES %%s" % (table, target_fields_fragment)
+        return sql
+
+
+class LoadToPostgresqlOperator(BaseOperator):
     """
     Load data to target table
     """
@@ -41,7 +69,7 @@ class LoadFromCSVOperator(BaseOperator):
             postgres_conn_id='postgres_default',
             autocommit=True,
             *args, **kwargs):
-        super(LoadFromCSVOperator, self).__init__(*args, **kwargs)
+        super(LoadToPostgresqlOperator, self).__init__(*args, **kwargs)
         self.csv_path = csv_path
         self.destination_table = destination_table
         self.target_fields = target_fields
@@ -49,15 +77,17 @@ class LoadFromCSVOperator(BaseOperator):
         self.autocommit = autocommit
 
     def execute(self, context):
-        # Read from CSV file
-        df = pd.read_csv(self.csv_path, sep=';', header=None)
-        rows = [tuple(x) for x in df.to_numpy()]
-        target = PostgresHook(postgres_conn_id=self.postgres_conn_id)
+        try:
+            # Read from CSV file
+            df = pandas.read_csv(self.csv_path, sep=';', header=None)
+            rows = [tuple(x) for x in df.to_numpy()]
+        except (Exception, FileNotFoundError, pandas.errors.EmptyDataError) as error:
+            logging.error('Input file is empty: {}'.format(error.__str__()))
+            raise
 
-        truncate_table(target, self.destination_table)
-        target.insert_rows(
+        target = PostgresqlPatchedHook(postgres_conn_id=self.postgres_conn_id)
+        target.insert_many_rows(
             self.destination_table,
             rows=rows,
-            target_fields=self.target_fields,
-            commit_every=1000,
+            target_fields=self.target_fields
         )

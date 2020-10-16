@@ -11,9 +11,9 @@ from airflow.utils.decorators import (
 )
 
 
-class ExtractFromPostgresOperator(BaseOperator):
+class ExtractFromPostgresqlOperator(BaseOperator):
     """
-    Extract source data
+    Extract data from postgresql source data
     """
 
     template_fields = ('sql', 'csv_path',)
@@ -30,7 +30,7 @@ class ExtractFromPostgresOperator(BaseOperator):
             pandas_sql_params=None,
             csv_params=None,
             *args, **kwargs):
-        super(ExtractFromPostgresOperator, self).__init__(*args, **kwargs)
+        super(ExtractFromPostgresqlOperator, self).__init__(*args, **kwargs)
         self.sql = sql
         self.postgres_conn_id = postgres_conn_id
         self.csv_path = csv_path

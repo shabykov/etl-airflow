@@ -11,7 +11,7 @@ from airflow.utils.decorators import (
 )
 
 
-class TransformCSVFileOperator(BaseOperator):
+class ProcessRecycleOperator(BaseOperator):
     """
     Transform source data to load
     """
@@ -25,7 +25,7 @@ class TransformCSVFileOperator(BaseOperator):
             csv_file_params,
             *args, **kwargs):
 
-        super(TransformCSVFileOperator, self).__init__(*args, **kwargs)
+        super(ProcessRecycleOperator, self).__init__(*args, **kwargs)
         self.csv_file_from_path = csv_file_from_path
         self.csv_file_to_path = csv_file_to_path
         self.csv_file_header = csv_file_header
@@ -33,5 +33,15 @@ class TransformCSVFileOperator(BaseOperator):
 
     def execute(self, context):
         df = pd.read_csv(self.csv_file_from_path, sep=';', names=self.csv_file_header)
+        df = df[df['store_id'].notna()]
         df['updated_at'] = [datetime.now().isoformat()] * len(df)
+        df.fillna(value={
+            'id_item': 0,
+            'name': 'unknown',
+            'quantity': 0,
+            'is_selected_for_dashboard': False,
+            'quantity_rto_plan': 0,
+            'recycle_plan': 0,
+            'rto_plan': 0
+        }, inplace=True)
         df.to_csv(self.csv_file_to_path, **self.csv_file_params)
