@@ -17,7 +17,7 @@ from airflow.utils.decorators import (
 )
 
 
-class PostgresqlPatchedHook(PostgresHook):
+class PostgresqlLoadHook(PostgresHook):
     def insert_many_rows(self,
                          table,
                          rows,
@@ -85,7 +85,7 @@ class LoadToPostgresqlOperator(BaseOperator):
             logging.error('Input file is empty: {}'.format(error.__str__()))
             raise
 
-        target = PostgresqlPatchedHook(postgres_conn_id=self.postgres_conn_id)
+        target = PostgresqlLoadHook(postgres_conn_id=self.postgres_conn_id)
         target.insert_many_rows(
             self.destination_table,
             rows=rows,
