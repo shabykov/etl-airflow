@@ -19,7 +19,7 @@ from operators.load import (
 
 args = {
     'owner': 'Me',
-    'start_date': datetime(2020, 10, 16, hour=10, minute=0)
+    'start_date': datetime(2020, 10, 17, hour=15, minute=0)
 }
 
 TABLE_NAME = 'dashboards_productsstoppedfood'
@@ -27,13 +27,15 @@ TABLE_COLUMNS = [
     'updated_at', 'plu', 'ui2', 'ui3', 'name',
     'last_saled', 'days_of_nonsale', 'leftover', 'store_id', 'is_actual'
 ]
-CSV_FILE_RAW_PATH = 'data/stopped_food.csv'
-CSV_FILE_CLEANED_PATH = 'data/stopped_food_clean.csv'
+CSV_FILE_RAW_PATH = 'data/stopped_food.csv.gz'
+CSV_FILE_CLEANED_PATH = 'data/stopped_food_clean.csv.gz'
 CSV_FILE_PARAMS = {
     'sep': ';',
     'header': False,
     'index': False,
     'mode': 'w',
+    'chunksize': 1000,
+    'compression': 'gzip',
     'encoding': 'utf-8'
 }
 
@@ -48,7 +50,7 @@ with DAG(
         postgres_conn_id='postgres_default',
         sql='select {{ params.target_fields }} from {{ params.table_name }}',
         params={'table_name': TABLE_NAME, 'target_fields': ', '.join(TABLE_COLUMNS)},
-        pandas_sql_params={'chunksize': 100},
+        pandas_sql_params={'chunksize': 1000},
         csv_path=CSV_FILE_RAW_PATH,
         csv_params=CSV_FILE_PARAMS,
         depends_on_past=True,

@@ -19,7 +19,7 @@ from operators.load import (
 
 args = {
     'owner': 'Me',
-    'start_date': datetime(2020, 10, 16, hour=10, minute=0)
+    'start_date': datetime(2020, 10, 17, hour=15, minute=0)
 }
 
 TABLE_NAME = 'dashboards_recycle'
@@ -28,13 +28,15 @@ TABLE_COLUMNS = [
     'store_id', 'is_selected_for_dashboard',
     'quantity_rto_plan', 'recycle_plan', 'rto_plan'
 ]
-CSV_FILE_RAW_PATH = 'data/recycle.csv'
-CSV_FILE_CLEANED_PATH = 'data/recycle_clean.csv'
+CSV_FILE_RAW_PATH = 'data/recycle.csv.gz'
+CSV_FILE_CLEANED_PATH = 'data/recycle_clean.csv.gz'
 CSV_FILE_PARAMS = {
     'sep': ';',
     'header': False,
     'index': False,
     'mode': 'w',
+    'chunksize': 1000,
+    'compression': 'gzip',
     'encoding': 'utf-8'
 }
 

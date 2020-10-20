@@ -18,10 +18,10 @@ from airflow.utils.decorators import (
 
 
 class PostgresqlLoadHook(PostgresHook):
-    def insert_many_rows(self,
-                         table,
-                         rows,
-                         target_fields=None):
+    def load_pandas_df(self,
+                       table,
+                       pandas_df_chunks,
+                       target_fields=None):
 
         with closing(self.get_conn()) as conn:
             if self.supports_autocommit:
@@ -32,15 +32,16 @@ class PostgresqlLoadHook(PostgresHook):
                 cur.execute("TRUNCATE %s RESTART IDENTITY;" % table)
                 self.log.info("Table %s is cleaned", table)
                 try:
-                    sql = self._generate_many_insert_sql(table, target_fields)
-                    extras.execute_values(cur, sql, rows)
+                    for df_chunk in pandas_df_chunks:
+                        sql = self._generate_many_insert_sql(table, target_fields)
+                        extras.execute_values(cur, sql, [tuple(x) for x in df_chunk.to_numpy()])
                 except (Exception, psycopg2.DatabaseError) as error:
                     conn.rollback()
                     self.log.error('Load error: {}'.format(error.__str__()))
                     raise
 
             conn.commit()
-        self.log.info("Done loading. Loaded a total of %s rows", len(rows))
+        self.log.info("Done loading.")
 
     @staticmethod
     def _generate_many_insert_sql(table, target_fields):
@@ -79,15 +80,14 @@ class LoadToPostgresqlOperator(BaseOperator):
     def execute(self, context):
         try:
             # Read from CSV file
-            df = pandas.read_csv(self.csv_path, sep=';', header=None)
-            rows = [tuple(x) for x in df.to_numpy()]
+            df = pandas.read_csv(self.csv_path, sep=';', header=None, iterator=True, chunksize=1000)
         except (Exception, FileNotFoundError, pandas.errors.EmptyDataError) as error:
             logging.error('Input file is empty: {}'.format(error.__str__()))
             raise
 
         target = PostgresqlLoadHook(postgres_conn_id=self.postgres_conn_id)
-        target.insert_many_rows(
+        target.load_pandas_df(
             self.destination_table,
-            rows=rows,
+            pandas_df_chunks=df,
             target_fields=self.target_fields
         )
